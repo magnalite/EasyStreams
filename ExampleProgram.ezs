@@ -1,0 +1,8 @@
+LoadStreams "Inputfile.txt";
+
+#This is a comment #
+
+InStream0 -> Show;
+InStream0 -> Copy -> OutputStreams0;
+
+OutputStreams 1;
