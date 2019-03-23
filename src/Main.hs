@@ -33,25 +33,20 @@ numberise [] = []
 formStreams :: String -> [[Int]]
 formStreams input = transpose ( numberise (extractLines input "" ))
 
---getStreamValue :: [IO [Int]] -> Int -> Int -> IO Int
---getStreamValue i streamVal index = 
+processToken :: [Token] -> [[Int]] -> [[Int]] -> IO ()
 
-processNextToken :: [Token] -> [[Int]] -> [[Int]] -> Int -> IO ()
-processNextToken t i o pos = processToken (t!!pos) t i o pos
+processToken [] i o = putStrLn "Execution finished."
 
-processToken :: Token -> [Token] -> [[Int]] -> [[Int]] -> Int -> IO ()
-
-processToken InputStream tokens i o pos = do 
-    let (DigitLit streamVal) = (tokens!!(pos+1))
+processToken (InputStream:(DigitLit streamVal):tokens) i o = do 
     putStrLn ("Loading stream:" ++ (show streamVal))
-    let opSequence = formStreamOpSequence (drop pos tokens)
+    let opSequence = formStreamOpSequence tokens
     putStrLn (show opSequence)
-    processStreamOpSequence opSequence i o 0
-    processNextToken tokens i o (pos+2)
+    recursiveProcess opSequence (i!!streamVal) o
+    processToken tokens i o
 
-processToken t tokens i o pos = do
-    --putStrLn ("Skipping token:" ++ (show t))
-    processNextToken tokens i o (pos+1)
+processToken (t:tokens) i o = do
+    putStrLn ("Skipping token:" ++ (show t))
+    processToken tokens i o
 
 formStreamOpSequence :: [Token] -> StreamOpSequence
 formStreamOpSequence ((InputStream):(DigitLit n):t) = Op (FromStream n) (formStreamOpSequence t)
@@ -61,12 +56,18 @@ formStreamOpSequence ((ShowOp):t) = Op Print (formStreamOpSequence t)
 formStreamOpSequence ((OutputStream):(DigitLit n):t) = End (ToEndStream n)
 formStreamOpSequence a = End UndefinedEnd
 
-processStreamOpSequence :: StreamOpSequence -> [[Int]] -> [[Int]] -> Int -> IO ()
-processStreamOpSequence (Op (FromStream n) seq) i o index = do
-    putStrLn ("INDEXING: " ++ (show index))
-    let initialVal = i!!n!!index
-    calculateStreamOpSequence seq initialVal
-    
+processStreamOpSequence :: StreamOpSequence -> [Int] -> [[Int]] -> IO ()
+processStreamOpSequence (Op (FromStream n) seq) i o = recursiveProcess seq i o
+processStreamOpSequence seq i o = putStrLn ("Abort on:" ++ (show seq))
+
+recursiveProcess :: StreamOpSequence -> [Int] -> [[Int]] -> IO ()
+recursiveProcess seq (val:inStream) o = do
+    calculateStreamOpSequence seq val
+    recursiveProcess seq inStream o
+
+recursiveProcess seq [] o = do
+    putStrLn "Input stream exausted"
+
 calculateStreamOpSequence :: StreamOpSequence -> Int -> IO ()
 calculateStreamOpSequence (Op Send seq) val = calculateStreamOpSequence seq val
 
@@ -77,11 +78,11 @@ calculateStreamOpSequence (Op Print seq) val = do
 calculateStreamOpSequence (Op Copy seq) val = calculateStreamOpSequence seq val
 
 calculateStreamOpSequence (End (ToEndStream n)) val = do
-    putStrLn ("Append" ++ (show val) ++ " to output stream " ++ (show n))
+    putStrLn ("Append " ++ (show val) ++ " to output stream " ++ (show n))
 calculateStreamOpSequence seq val = putStrLn ("Ended Stream sequence")
 
 startInterpreting :: [Token] -> [[Int]] -> [[Int]] -> IO ()
-startInterpreting tokens i o = processNextToken tokens i o 0
+startInterpreting tokens i o = processToken tokens i o
 
 main :: IO ()
 main = do
