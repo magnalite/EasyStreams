@@ -3,6 +3,6 @@ LoadStreams "Inputfile.txt";
 #This is a comment #
 
 InStream0 -> Show;
-InStream0 -> Copy -> OutputStreams0;
+InStream0 -> Copy -> OutStream0;
 
 OutputStreams 1;
