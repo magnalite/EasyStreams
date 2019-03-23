@@ -36,17 +36,17 @@ formStreams input = transpose ( numberise (extractLines input "" ))
 --getStreamValue :: [IO [Int]] -> Int -> Int -> IO Int
 --getStreamValue i streamVal index = 
 
-processNextToken :: [Token] -> [IO [Int]] -> [[Int]] -> Int -> IO ()
+processNextToken :: [Token] -> [[Int]] -> [[Int]] -> Int -> IO ()
 processNextToken t i o pos = processToken (t!!pos) t i o pos
 
-processToken :: Token -> [Token] -> [IO [Int]] -> [[Int]] -> Int -> IO ()
+processToken :: Token -> [Token] -> [[Int]] -> [[Int]] -> Int -> IO ()
 
 processToken InputStream tokens i o pos = do 
     let (DigitLit streamVal) = (tokens!!(pos+1))
     putStrLn ("Loading stream:" ++ (show streamVal))
     let opSequence = formStreamOpSequence (drop pos tokens)
     putStrLn (show opSequence)
-    processStreamOpSequence opSequence i o 1
+    processStreamOpSequence opSequence i o 0
     processNextToken tokens i o (pos+2)
 
 processToken t tokens i o pos = do
@@ -61,11 +61,10 @@ formStreamOpSequence ((ShowOp):t) = Op Print (formStreamOpSequence t)
 formStreamOpSequence ((OutputStream):(DigitLit n):t) = End (ToEndStream n)
 formStreamOpSequence a = End UndefinedEnd
 
-processStreamOpSequence :: StreamOpSequence -> [IO [Int]] -> [[Int]] -> Int -> IO ()
+processStreamOpSequence :: StreamOpSequence -> [[Int]] -> [[Int]] -> Int -> IO ()
 processStreamOpSequence (Op (FromStream n) seq) i o index = do
     putStrLn ("INDEXING: " ++ (show index))
-    streamLine <- (head i)
-    let initialVal = streamLine!!n
+    let initialVal = i!!n!!index
     calculateStreamOpSequence seq initialVal
     
 calculateStreamOpSequence :: StreamOpSequence -> Int -> IO ()
@@ -81,15 +80,16 @@ calculateStreamOpSequence (End (ToEndStream n)) val = do
     putStrLn ("Append" ++ (show val) ++ " to output stream " ++ (show n))
 calculateStreamOpSequence seq val = putStrLn ("Ended Stream sequence")
 
-startInterpreting :: [Token] -> [IO [Int]] -> [[Int]] -> IO ()
+startInterpreting :: [Token] -> [[Int]] -> [[Int]] -> IO ()
 startInterpreting tokens i o = processNextToken tokens i o 0
 
 main :: IO ()
 main = do
     args <- getArgs
     source <- readFile (head args)
+    input <- getContents
 
-    let inputStreams = formStreams
+    let inputStreams = formStreams input
     let outputStreams = []
     let tokens = alexScanTokens source
 
