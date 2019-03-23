@@ -11,30 +11,22 @@ $stringContent = [~"~\;]
 tokens :-
     $white+ ;
     \#.+\# ;
+    \; ;
+    
+    InStream$digit+     {\s -> TokenInStream}
+    OutStream$digit+    {\s -> TokenOutStream}
+    \->                 {\s -> TokenSend}
+    $digit+             {\s -> TokenInt}
+    \"$stringContent+\" {\s -> TokenString}
+    $letter+            {\s -> TokenOp}
 
-    $digit+ {\s -> DigitLit} 
-    \"$stringContent+\" {\s -> String}
-    \; {\s -> LineEnd}
-    \-> {\s -> SendOp}
-
-    InStream {\s -> InputStream}
-    OutStream {\s -> OutputStream}
-    LoadStreams {\s -> LoadOp}
-    OutputStreams {\s -> OutputOp}
-    Show {\s -> ShowOp}
-    Copy {\s -> CopyOp}
 {
 data Token =
-    Ref |
-    String |
-    LineEnd |
-    SendOp |
-    InputStream |
-    OutputStream |
-    DigitLit |
-    LoadOp |
-    OutputOp |
-    ShowOp |
-    CopyOp
+    TokenInStream |
+    TokenOutStream | 
+    TokenSend |
+    TokenInt |
+    TokenString |
+    TokenOp 
     deriving (Eq,Show)
 }
