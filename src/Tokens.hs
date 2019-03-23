@@ -5985,21 +5985,20 @@ alex_actions = array (0 :: Int, 10)
 {-# LINE 26 "src/Tokens.x" #-}
 
 data Token =
-    Ref |
-    String |
+    StringToken String |
     LineEnd |
     SendOp |
     InputStream |
     OutputStream |
-    DigitLit |
+    DigitLit Int |
     LoadOp |
     OutputOp |
     ShowOp |
     CopyOp
     deriving (Eq,Show)
 
-alex_action_2 = \s -> DigitLit
-alex_action_3 = \s -> String
+alex_action_2 = \s -> DigitLit (read s)
+alex_action_3 = \s -> StringToken s
 alex_action_4 = \s -> LineEnd
 alex_action_5 = \s -> SendOp
 alex_action_6 = \s -> InputStream

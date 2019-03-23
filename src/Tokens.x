@@ -12,8 +12,8 @@ tokens :-
     $white+ ;
     \#.+\# ;
 
-    $digit+ {\s -> DigitLit} 
-    \"$stringContent+\" {\s -> String}
+    $digit+ {\s -> DigitLit (read s)} 
+    \"$stringContent+\" {\s -> StringToken s}
     \; {\s -> LineEnd}
     \-> {\s -> SendOp}
 
@@ -25,13 +25,12 @@ tokens :-
     Copy {\s -> CopyOp}
 {
 data Token =
-    Ref |
-    String |
+    StringToken String |
     LineEnd |
     SendOp |
     InputStream |
     OutputStream |
-    DigitLit |
+    DigitLit Int |
     LoadOp |
     OutputOp |
     ShowOp |
