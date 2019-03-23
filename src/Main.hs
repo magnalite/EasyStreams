@@ -6,6 +6,9 @@ import Tokens
 import System.Environment
 import Data.Char(digitToInt)
 
+data StreamOp = Send | Copy | Print | Add | FromStream Int deriving (Eq, Show)
+data TerminalStreamOp = ToEndStream Int | UndefinedEnd deriving (Eq, Show)
+data StreamOpSequence = Op StreamOp StreamOpSequence | End TerminalStreamOp deriving (Eq, Show)
 
 --Reads in one line at a time and splits into seperate streams
 --Eg 3 5 4 -> [3, 5, 4]
@@ -28,15 +31,63 @@ fetchStreamLine = do
 formStreams :: [IO [Int]]
 formStreams = fetchStreamLine:formStreams
 
+--getStreamValue :: [IO [Int]] -> Int -> Int -> IO Int
+--getStreamValue i streamVal index = 
+
+processNextToken :: [Token] -> [IO [Int]] -> [[Int]] -> Int -> IO ()
+processNextToken t i o pos = processToken (t!!pos) t i o pos
+
+processToken :: Token -> [Token] -> [IO [Int]] -> [[Int]] -> Int -> IO ()
+
+processToken InputStream tokens i o pos = do 
+    let (DigitLit streamVal) = (tokens!!(pos+1))
+    putStrLn ("Loading stream:" ++ (show streamVal))
+    let opSequence = formStreamOpSequence (drop pos tokens)
+    putStrLn (show opSequence)
+    processStreamOpSequence opSequence i o 1
+    processNextToken tokens i o (pos+2)
+
+processToken t tokens i o pos = do
+    --putStrLn ("Skipping token:" ++ (show t))
+    processNextToken tokens i o (pos+1)
+
+formStreamOpSequence :: [Token] -> StreamOpSequence
+formStreamOpSequence ((InputStream):(DigitLit n):t) = Op (FromStream n) (formStreamOpSequence t)
+formStreamOpSequence ((SendOp):t) = Op Send (formStreamOpSequence t)
+formStreamOpSequence ((CopyOp):t) = Op Copy (formStreamOpSequence t)
+formStreamOpSequence ((ShowOp):t) = Op Print (formStreamOpSequence t)
+formStreamOpSequence ((OutputStream):(DigitLit n):t) = End (ToEndStream n)
+formStreamOpSequence a = End UndefinedEnd
+
+processStreamOpSequence :: StreamOpSequence -> [IO [Int]] -> [[Int]] -> Int -> IO ()
+processStreamOpSequence (Op (FromStream n) seq) i o index = do
+    putStrLn ("INDEXING: " ++ (show index))
+    streamLine <- (head i)
+    let initialVal = streamLine!!n
+    calculateStreamOpSequence seq initialVal
+    
+calculateStreamOpSequence :: StreamOpSequence -> Int -> IO ()
+calculateStreamOpSequence (Op Send seq) val = calculateStreamOpSequence seq val
+
+calculateStreamOpSequence (Op Print seq) val = do
+    putStrLn (show val)
+    calculateStreamOpSequence seq val
+
+calculateStreamOpSequence (Op Copy seq) val = calculateStreamOpSequence seq val
+
+calculateStreamOpSequence (End (ToEndStream n)) val = do
+    putStrLn ("Append" ++ (show val) ++ " to output stream " ++ (show n))
+calculateStreamOpSequence seq val = putStrLn ("Ended Stream sequence")
+
+startInterpreting :: [Token] -> [IO [Int]] -> [[Int]] -> IO ()
+startInterpreting tokens i o = processNextToken tokens i o 0
+
 main :: IO ()
 main = do
     args <- getArgs
     source <- readFile (head args)
     let inputStreams = formStreams
-
+    let outputStreams = []
     let tokens = alexScanTokens source
-    putStrLn (show tokens)
-    firstInputs <- (inputStreams!!1)
-    putStrLn (show firstInputs)
-    secondInputs <- (inputStreams!!2)
-    putStrLn (show secondInputs)
+
+    startInterpreting tokens inputStreams outputStreams
