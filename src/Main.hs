@@ -9,7 +9,7 @@ import Data.List
 
 -- Operation definitions ---------------------------------------------------------------------------------
 data StreamOp = Send | Copy | Print | Add | FromStream [Int] | Gen Int deriving (Eq, Show)
-data TerminalStreamOp = ToEndStream Int | CachedEnd [Int] | UndefinedEnd deriving (Eq, Show)
+data TerminalStreamOp = ToEndStream Int | UndefinedEnd deriving (Eq, Show)
 data StreamOpSequence = Op StreamOp StreamOpSequence | Combined StreamOpSequence StreamOpSequence | End TerminalStreamOp deriving (Eq, Show)
 
 -- Input pre-processing ----------------------------------------------------------------------------------
@@ -32,35 +32,38 @@ formStreams input = transpose ( numberise (extractLines input "" ))
 
 
 -- Token Processing -------------------------------------------------------------------------------------
-
 skipToEndBracket :: [Token] -> [Token]
 skipToEndBracket ((BClose):tokens) = tokens
 skipToEndBracket (t:tokens) = skipToEndBracket tokens
 
-processToken :: [Token] -> [[Int]] -> [[Int]] -> IO ()
+skipToNextLine :: [Token] -> [Token]
+skipToNextLine (((LineEnd):tokens)) = tokens
+skipToNextLine (t:tokens) = skipToNextLine tokens
 
-processToken [] i o = putStrLn "\n\nExecution finished."
+processToken :: [Token] -> [[Int]] -> IO ()
 
-processToken (InputStream:(DigitLit streamVal):tokens) i o = do 
+processToken [] i = putStrLn "\n\nExecution finished."
+
+processToken (InputStream:(DigitLit streamVal):tokens) i = do 
     let opSequence = Op (FromStream (i!!streamVal)) (formStreamOpSequence tokens i)
-    --putStr ("InputStream" ++ (show streamVal))
-    processStreamOpSequence opSequence i o
-    processToken tokens i o
+    endVal <- processStreamOpSequence opSequence
+    putStrLn ("Ops returned: " ++ (show endVal))
+    processToken (skipToNextLine tokens) i
 
-processToken (GenOp:(DigitLit n):tokens) i o = do
+processToken (GenOp:(DigitLit n):tokens) i = do
     let opSequence = Op (FromStream [n]) (formStreamOpSequence tokens i)
-    processStreamOpSequence opSequence i o
-    processToken tokens i o
+    let vals = processStreamOpSequence opSequence
+    processToken tokens i
 
-processToken (t:tokens) i o = do
-    processToken tokens i o
+processToken (t:tokens) i = do
+    processToken tokens i
 
 -- Stream Processing -------------------------------------------------------------------------------------
 formStreamOpSequence :: [Token] -> [[Int]] -> StreamOpSequence
 formStreamOpSequence ((SendOp):t) i = Op Send (formStreamOpSequence t i)
 formStreamOpSequence ((ShowOp):t) i = Op Print (formStreamOpSequence t i)
 formStreamOpSequence ((OutputStream):(DigitLit n):t) i = End (ToEndStream n)
-formStreamOpSequence ((BClose):t) i = End (CachedEnd [])
+formStreamOpSequence ((BClose):t) i = End UndefinedEnd
 formStreamOpSequence ((CombineOp):(BOpen):t) i = (Combined opSequence (formStreamOpSequence tokens i)) where
                                             opSequence = formStreamOpSequence t i
                                             tokens = skipToEndBracket t
@@ -68,54 +71,40 @@ formStreamOpSequence ((AddOp):t) i = Op Add (formStreamOpSequence t i)
 formStreamOpSequence ((InputStream):(DigitLit streamVal):t) i = Op (FromStream (i!!streamVal)) (formStreamOpSequence t i)
 formStreamOpSequence a i = End UndefinedEnd
 
-processStreamOpSequence :: StreamOpSequence -> [[Int]] -> [[Int]] -> IO Int
-processStreamOpSequence (Op (FromStream n) seq) i o = recursiveProcess seq n o 0
+processStreamOpSequence :: StreamOpSequence -> IO [Int]
+processStreamOpSequence (Op (FromStream n) seq) = recursiveProcess seq n 0
 
-recursiveProcess :: StreamOpSequence -> [Int] -> [[Int]] -> Int -> IO Int
-recursiveProcess seq (val:inStream) o count = do
-    calculateStreamOpSequence seq val o count
-    recursiveProcess seq inStream o (count+1)
+recursiveProcess :: StreamOpSequence -> [Int] -> Int -> IO [Int]
+recursiveProcess seq (val:inStream) count = do
+    processedVal <- calculateStreamOpSequence seq val count
+    nextVal <- recursiveProcess seq inStream (count+1)
+    return (processedVal:nextVal)
+recursiveProcess seq [] count = return []
 
-recursiveProcess seq [] o count = do
-    return 0
-
-calculateStreamOpSequence :: StreamOpSequence -> Int -> [[Int]] -> Int -> IO Int
-calculateStreamOpSequence (Op Send seq) val o count = do
-    --putStr ("->")
-    calculateStreamOpSequence seq val o count
-
-calculateStreamOpSequence (Op Print seq) val o count = do
+calculateStreamOpSequence :: StreamOpSequence -> Int -> Int -> IO Int
+calculateStreamOpSequence (Op Send seq) val count = calculateStreamOpSequence seq val count
+calculateStreamOpSequence (End (ToEndStream n)) val count = do return val
+calculateStreamOpSequence (End UndefinedEnd) val count = do return val
+calculateStreamOpSequence (Combined seq1 seq2) val count = processCombinedOp seq1 seq2 val count
+calculateStreamOpSequence (Op Print seq) val count = do
     putStrLn (show val)
-    calculateStreamOpSequence seq val o count
-
-calculateStreamOpSequence (End (ToEndStream n)) val o count = do
-    putStrLn ((show val) ++ "->OutputStream" ++ (show n))
+    calculateStreamOpSequence seq val count
+calculateStreamOpSequence seq val count = do 
+    putStrLn ("Unhandled sequence:" ++ (show seq))
     return val
 
-calculateStreamOpSequence (End (CachedEnd n)) val o count = do 
-    return val
+processCombinedOp :: StreamOpSequence -> StreamOpSequence -> Int -> Int -> IO Int
+processCombinedOp (Op (FromStream s1) seq1) (Op Send seq2) val count = do
+    seq1Val <- calculateStreamOpSequence seq1 (s1!!count) count
+    calculateCombinedOp seq2 seq1Val val count
 
-calculateStreamOpSequence (Combined seq1 seq2) val o count = do
-    --putStr (">>")
-    calculateCombinedOp seq1 seq2 val o count
+calculateCombinedOp :: StreamOpSequence -> Int -> Int -> Int -> IO Int
+calculateCombinedOp (Op Add seq) val1 val2 count = calculateStreamOpSequence seq (val1+val2) count
 
-calculateStreamOpSequence (Op Add seq) val o count = do
-    calculateStreamOpSequence seq val o count
-
-calculateStreamOpSequence seq val o count = do 
-    --putStrLn (";")
-    return val
-
-calculateCombinedOp :: StreamOpSequence -> StreamOpSequence -> Int -> [[Int]] -> Int -> IO Int
-calculateCombinedOp (Op (FromStream s1) seq1) seq2 val o count = do
-    seq1Val <- calculateStreamOpSequence seq1 (s1!!count) o count
-    --putStr ((show val) ++ "+" ++ (show seq1Val))
-    calculateStreamOpSequence seq2 (val+seq1Val) o count
-    
 
 -- Main program -------------------------------------------------------------------------------------------
 startInterpreting :: [Token] -> [[Int]] -> [[Int]] -> IO ()
-startInterpreting tokens i o = processToken tokens i o
+startInterpreting tokens i o = processToken tokens i
 
 main :: IO ()
 main = do
