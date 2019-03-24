@@ -1,7 +1,7 @@
 
 output: src/Tokens.hs
 	(cd src; ghc Main.hs;)
-	./src/Main ExampleProgram.spl < ExampleInput.txt
+	./src/Main problem1.spl < ExampleInput.txt
 
 src/Tokens.hs: src/Tokens.x
 	alex --outfile=src/Tokens.hs src/Tokens.x

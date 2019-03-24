@@ -30,8 +30,7 @@ numberise [] = []
 formStreams :: String -> [[Int]]
 formStreams input = transpose ( numberise (extractLines input "" ))
 
-
--- Token Processing -------------------------------------------------------------------------------------
+-- Token Processing (on the fly lexing?) -------------------------------------------------------------------
 skipToEndBracket :: [Token] -> [Token]
 skipToEndBracket ((BClose):tokens) = tokens
 skipToEndBracket (t:tokens) = skipToEndBracket tokens
@@ -40,25 +39,20 @@ skipToNextLine :: [Token] -> [Token]
 skipToNextLine (((LineEnd):tokens)) = tokens
 skipToNextLine (t:tokens) = skipToNextLine tokens
 
-processToken :: [Token] -> [[Int]] -> IO ()
+intakeToken :: [Token] -> [[Int]] -> IO ()
+intakeToken [] i = putStrLn "\nExecution finished."
+intakeToken (InputStream:(DigitLit streamVal):tokens) i = processToken tokens (i!!streamVal) i
+intakeToken (GenOp:(DigitLit n):tokens) i = processToken tokens [n] i
+intakeToken (t:tokens) i = intakeToken tokens i
 
-processToken [] i = putStrLn "\n\nExecution finished."
+processToken :: [Token] -> [Int] -> [[Int]] -> IO ()
+processToken tokens source i = do
+    let opSequence = Op (FromStream source) (formStreamOpSequence tokens i)
+    let (dest, vals) = processStreamOpSequence opSequence
+    vals <- vals
+    putStrLn ("Ops returned: " ++ (show vals) ++ " to stream " ++ (show dest))
+    intakeToken (skipToNextLine tokens) i
 
-processToken (InputStream:(DigitLit streamVal):tokens) i = do 
-    let opSequence = Op (FromStream (i!!streamVal)) (formStreamOpSequence tokens i)
-    endVal <- processStreamOpSequence opSequence
-    putStrLn ("Ops returned: " ++ (show endVal))
-    processToken (skipToNextLine tokens) i
-
-processToken (GenOp:(DigitLit n):tokens) i = do
-    let opSequence = Op (FromStream [n]) (formStreamOpSequence tokens i)
-    let vals = processStreamOpSequence opSequence
-    processToken tokens i
-
-processToken (t:tokens) i = do
-    processToken tokens i
-
--- Stream Processing -------------------------------------------------------------------------------------
 formStreamOpSequence :: [Token] -> [[Int]] -> StreamOpSequence
 formStreamOpSequence ((SendOp):t) i = Op Send (formStreamOpSequence t i)
 formStreamOpSequence ((ShowOp):t) i = Op Print (formStreamOpSequence t i)
@@ -71,8 +65,14 @@ formStreamOpSequence ((AddOp):t) i = Op Add (formStreamOpSequence t i)
 formStreamOpSequence ((InputStream):(DigitLit streamVal):t) i = Op (FromStream (i!!streamVal)) (formStreamOpSequence t i)
 formStreamOpSequence a i = End UndefinedEnd
 
-processStreamOpSequence :: StreamOpSequence -> IO [Int]
-processStreamOpSequence (Op (FromStream n) seq) = recursiveProcess seq n 0
+-- Stream Processing -------------------------------------------------------------------------------------
+streamDestination :: StreamOpSequence -> Int
+streamDestination (Combined seq1 seq2) = streamDestination seq2
+streamDestination (Op op seq) = streamDestination seq
+streamDestination (End (ToEndStream n)) = n
+
+processStreamOpSequence :: StreamOpSequence -> (Int, IO [Int])
+processStreamOpSequence (Op (FromStream n) seq) = (streamDestination seq, recursiveProcess seq n 0)
 
 recursiveProcess :: StreamOpSequence -> [Int] -> Int -> IO [Int]
 recursiveProcess seq (val:inStream) count = do
@@ -104,7 +104,9 @@ calculateCombinedOp (Op Add seq) val1 val2 count = calculateStreamOpSequence seq
 
 -- Main program -------------------------------------------------------------------------------------------
 startInterpreting :: [Token] -> [[Int]] -> [[Int]] -> IO ()
-startInterpreting tokens i o = processToken tokens i
+startInterpreting tokens i o = do
+    putStrLn("\nStarting Interpreter\n")
+    intakeToken tokens i
 
 main :: IO ()
 main = do

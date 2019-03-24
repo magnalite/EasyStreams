@@ -1,6 +1,6 @@
 
 #This is a comment #
 
-InStream0 >> (InStream1) -> Add -> Show -> OutStream0;
+InStream0 >> (InStream1) -> Add -> OutStream0;
 
 OutputStreams 1;
