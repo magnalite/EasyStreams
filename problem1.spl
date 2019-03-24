@@ -1,5 +1,7 @@
 
 Gen 0 -> OutStream0;
 InStream0 -> OutStream0;
+InStream0 -> OutStream1;
+InStream1 -> Show >> (InStream2 -> Show) -> Add -> Show -> OutStream1;
 
-OutputStreams 1;
+OutputStreams 2;

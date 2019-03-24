@@ -20,8 +20,8 @@ extractLines [] s = []
 
 convertLine :: String -> String -> [Int]
 convertLine (' ':rest) building = (read building :: Int):(convertLine rest "")
-convertLine (s:"") building = [(read (s:building) :: Int)]
-convertLine (s:rest) building = convertLine rest (s:building)
+convertLine (s:"") building = [(read (building ++ [s]) :: Int)]
+convertLine (s:rest) building = convertLine rest (building ++ [s])
 
 numberise :: [String] -> [[Int]]
 numberise (line:rest) = (convertLine line ""):(numberise rest)
@@ -30,7 +30,7 @@ numberise [] = []
 formStreams :: String -> [[Int]]
 formStreams input = transpose ( numberise (extractLines input "" ))
 
--- Token Processing (on the fly lexing?) -------------------------------------------------------------------
+-- Token Processing -----------------------------------------------------------------------------------
 skipToEndBracket :: [Token] -> [Token]
 skipToEndBracket ((BClose):tokens) = tokens
 skipToEndBracket (t:tokens) = skipToEndBracket tokens
@@ -83,11 +83,11 @@ recursiveProcess seq [] count = return []
 
 calculateStreamOpSequence :: StreamOpSequence -> Int -> Int -> IO Int
 calculateStreamOpSequence (Op Send seq) val count = calculateStreamOpSequence seq val count
-calculateStreamOpSequence (End (ToEndStream n)) val count = do return val
+calculateStreamOpSequence (End (ToEndStream n)) val count = do putStr "\n"; return val
 calculateStreamOpSequence (End UndefinedEnd) val count = do return val
 calculateStreamOpSequence (Combined seq1 seq2) val count = processCombinedOp seq1 seq2 val count
 calculateStreamOpSequence (Op Print seq) val count = do
-    putStrLn (show val)
+    putStr ((show val) ++ " ")
     calculateStreamOpSequence seq val count
 calculateStreamOpSequence seq val count = do 
     putStrLn ("Unhandled sequence:" ++ (show seq))
@@ -101,11 +101,10 @@ processCombinedOp (Op (FromStream s1) seq1) (Op Send seq2) val count = do
 calculateCombinedOp :: StreamOpSequence -> Int -> Int -> Int -> IO Int
 calculateCombinedOp (Op Add seq) val1 val2 count = calculateStreamOpSequence seq (val1+val2) count
 
-
 -- Main program -------------------------------------------------------------------------------------------
 startInterpreting :: [Token] -> [[Int]] -> [[Int]] -> IO ()
 startInterpreting tokens i o = do
-    putStrLn("\nStarting Interpreter\n")
+    putStrLn("--- Starting Interpreter -----")
     intakeToken tokens i
 
 main :: IO ()
@@ -114,9 +113,13 @@ main = do
     source <- readFile (head args)
     input <- getContents
 
+    putStrLn ("--- Loaded program ----------\n" ++ source)
+
     let inputStreams = formStreams input
     let outputStreams = []
     let tokens = alexScanTokens source
+
+    putStrLn ("--- Loaded inputs -----------\n" ++ input)
 
     startInterpreting tokens inputStreams outputStreams
 
