@@ -27,6 +27,9 @@ tokens :-
     Show {\s -> ShowOp}
     Gen {\s -> GenOp}
     Add {\s -> AddOp}
+    Multiply {\s -> MultiplyOp}
+    Last {\s -> LastOp}
+    Only {\s -> OnlyOp}
 {
 data Token =
     StringToken String |
@@ -42,6 +45,9 @@ data Token =
     OutputOp |
     ShowOp |
     GenOp |
-    AddOp
+    AddOp |
+    MultiplyOp |
+    LastOp |
+    OnlyOp
     deriving (Eq,Show)
 }

@@ -1,6 +1,8 @@
 
 #This is a comment #
 
-InStream0 >> (InStream1) -> Add -> OutStream0;
+InStream0 -> OutStream0;
+InStream1 -> OutStream1;
+InStream0 >> (InStream1) -> Add -> OutStream2;
 
-OutputStreams 1;
+OutputStreams 3;

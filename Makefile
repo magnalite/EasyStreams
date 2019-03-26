@@ -1,10 +1,15 @@
 
 output: src/Tokens.hs
-	(cd src; ghc Main.hs;)
-	./src/Main problem1.spl < ExampleInput.txt
+	(cd src; ghc -o myinterpreter Main.hs;)
 
 src/Tokens.hs: src/Tokens.x
 	alex --outfile=src/Tokens.hs src/Tokens.x
+
+test:
+	./src/myinterpreter tests/problem1.spl < tests/input1.txt
+	./src/myinterpreter tests/problem2.spl < tests/input2.txt
+	./src/myinterpreter tests/problem3.spl < tests/input3.txt
+	./src/myinterpreter tests/problem4.spl < tests/input4.txt
 
 clean:
 	rm src/Tokens.hs

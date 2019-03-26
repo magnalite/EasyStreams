@@ -1,0 +1,4 @@
+
+InStream0 >> (InStream1 -> Multiply 3) -> Add -> OutStream0;
+
+OutputStreams 1;

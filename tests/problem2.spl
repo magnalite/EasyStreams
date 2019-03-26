@@ -1,0 +1,5 @@
+
+InStream0 -> OutStream0;
+InStream0 -> OutStream1;
+
+OutputStreams 2;
