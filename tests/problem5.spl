@@ -1,0 +1,11 @@
+
+InStream0 -> Only 1 -> OutStream0;
+InStream0 Skip 1 -> Only 2 >> (Last 0) -> Add -> OutStream0;
+InStream0 Skip 2 >> (Last 0) -> Add >> (FromLast 1 0) -> Add -> OutStream0;
+
+InStream1 -> Only 1 -> OutStream1;
+InStream1 Skip 1 -> Only 2 >> (Last 1) -> Add -> OutStream1;
+InStream1 Skip 2 >> (Last 1) -> Add >> (FromLast 1 1) -> Add -> OutStream1;
+
+OutputStreams 2;
+

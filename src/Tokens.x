@@ -30,6 +30,8 @@ tokens :-
     Multiply {\s -> MultiplyOp}
     Last {\s -> LastOp}
     Only {\s -> OnlyOp}
+    Skip {\s -> SkipOp}
+    FromLast {\s -> FromLastOp}
 {
 data Token =
     StringToken String |
@@ -48,6 +50,8 @@ data Token =
     AddOp |
     MultiplyOp |
     LastOp |
-    OnlyOp
+    OnlyOp |
+    SkipOp |
+    FromLastOp
     deriving (Eq,Show)
 }

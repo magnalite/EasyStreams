@@ -1,5 +1,5 @@
 
 InStream0 -> Only 1 -> OutStream0;
-InStream0 >> (Last 0 -> Show) -> Add -> Show -> OutStream0;
+InStream0 Skip 1 >> (Last 0) -> Add -> OutStream0;
 
 OutputStreams 1;
