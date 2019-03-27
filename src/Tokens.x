@@ -31,6 +31,11 @@ tokens :-
     Last {\s -> LastOp}
     Only {\s -> OnlyOp}
     Skip {\s -> SkipOp}
+    Sub {\s -> SubOp}
+    Negate {\s -> NegateOp}
+    Divide {\s -> DivideOp}
+    Mod {\s -> ModOp}
+    Pow {\s -> PowOp}
     FromLast {\s -> FromLastOp}
 {
 data Token =
@@ -52,6 +57,11 @@ data Token =
     LastOp |
     OnlyOp |
     SkipOp |
-    FromLastOp
+    FromLastOp |
+    SubOp |
+    NegateOp |
+    DivideOp |
+    ModOp |
+    PowOp 
     deriving (Eq,Show)
 }

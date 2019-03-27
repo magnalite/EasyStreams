@@ -5,7 +5,7 @@ import System.Environment
 import Data.List
 
 -- Operation definitions ---------------------------------------------------------------------------------
-data StreamOp = Send | Copy | Print | Add | Multiply Int | Only Int| FromStream [Int] | Last Int | Skip Int | FromLast Int Int | Gen Int deriving (Eq, Show)
+data StreamOp = Send | Copy | Print | Add | Sub | Negate | Mod | Pow | Multiply Int | Divide Int | CombinedMultiply | CombinedDivide | Only Int| FromStream [Int] | Last Int | Skip Int | FromLast Int Int | Gen Int deriving (Eq, Show)
 data TerminalStreamOp = ToEndStream Int | UndefinedEnd deriving (Eq, Show)
 data StreamOpSequence = Op StreamOp StreamOpSequence | Combined StreamOpSequence StreamOpSequence | End TerminalStreamOp deriving (Eq, Show)
 data StreamInfo = Info [[Int]] [[Int]] --Instreams outstreams
@@ -65,12 +65,20 @@ formStreamOpSequence ((CombineOp):(BOpen):t) i = (Combined opSequence (formStrea
                                             opSequence = formStreamOpSequence t i
                                             tokens = skipToEndBracket t
 formStreamOpSequence ((AddOp):t) i = Op Add (formStreamOpSequence t i)
+formStreamOpSequence ((SubOp):t) i = Op Sub (formStreamOpSequence t i)
 formStreamOpSequence ((MultiplyOp):(DigitLit n):t) i = Op (Multiply n) (formStreamOpSequence t i)
+formStreamOpSequence ((DivideOp):(DigitLit n):t) i = Op (Divide n) (formStreamOpSequence t i)
+formStreamOpSequence ((NegateOp):t) i = Op Negate (formStreamOpSequence t i)
+formStreamOpSequence ((ModOp):t) i = Op Mod (formStreamOpSequence t i)
+formStreamOpSequence ((PowOp):t) i = Op Pow (formStreamOpSequence t i)
+formStreamOpSequence ((MultiplyOp):t) i = Op CombinedMultiply (formStreamOpSequence t i)
+formStreamOpSequence ((DivideOp):t) i = Op CombinedDivide (formStreamOpSequence t i)
 formStreamOpSequence ((OnlyOp):(DigitLit n):t) i = Op (Only n) (formStreamOpSequence t i)
 formStreamOpSequence ((SkipOp):(DigitLit n):t) i = Op (Skip n) (formStreamOpSequence t i)
 formStreamOpSequence ((InputStream):(DigitLit streamVal):t) i = Op (FromStream (i!!streamVal)) (formStreamOpSequence t i)
 formStreamOpSequence ((LastOp):(DigitLit n):t) i = Op (Last n) (formStreamOpSequence t i)
 formStreamOpSequence ((FromLastOp):(DigitLit sn):(DigitLit n):t) i = Op (FromLast sn n) (formStreamOpSequence t i)
+formStreamOpSequence ((GenOp):(DigitLit n):t) i = Op (Gen n) (formStreamOpSequence t i)
 formStreamOpSequence a i = End UndefinedEnd
 
 -- Stream Processing -------------------------------------------------------------------------------------
@@ -107,6 +115,8 @@ calculateStreamOpSequence (End (ToEndStream n)) (Info i o) val count = do
 calculateStreamOpSequence (End UndefinedEnd) info val count = return (return val, info)
 calculateStreamOpSequence (Combined seq1 seq2) info val count = processCombinedOp seq1 seq2 info val count
 calculateStreamOpSequence (Op (Multiply n) seq) info val count = calculateStreamOpSequence seq info (val*n) count
+calculateStreamOpSequence (Op (Divide n) seq) info val count = calculateStreamOpSequence seq info (quot val n) count
+calculateStreamOpSequence (Op Negate seq) info val count = calculateStreamOpSequence seq info (-val) count
 calculateStreamOpSequence (Op Print seq) info val count = do putStr ((show val) ++ " "); calculateStreamOpSequence seq info val count
 calculateStreamOpSequence op info val count = do
     putStrLn ("Unknown op" ++ (show op))
@@ -115,6 +125,10 @@ calculateStreamOpSequence op info val count = do
 processCombinedOp :: StreamOpSequence -> StreamOpSequence -> StreamInfo -> Int -> Int -> IO (IO Int, StreamInfo)
 processCombinedOp (Op (FromStream s1) seq1) (Op Send seq2) info val count = do
     (seq1Val, info) <- calculateStreamOpSequence seq1 info (s1!!count) count
+    seq1Val <- seq1Val
+    calculateCombinedOp seq2 info seq1Val val count
+processCombinedOp (Op (Gen n) seq1) (Op Send seq2) info val count = do
+    (seq1Val, info) <- calculateStreamOpSequence seq1 info n count
     seq1Val <- seq1Val
     calculateCombinedOp seq2 info seq1Val val count
 processCombinedOp (Op (Last n) seq1) (Op Send seq2) (Info i o) val count = do
@@ -129,7 +143,12 @@ processCombinedOp (Op (FromLast sn n) seq1) (Op Send seq2) (Info i o) val count 
     calculateCombinedOp seq2 info seq1Val val count
 
 calculateCombinedOp :: StreamOpSequence -> StreamInfo -> Int -> Int -> Int -> IO (IO Int, StreamInfo)
-calculateCombinedOp (Op Add seq) info val1 val2 count = calculateStreamOpSequence seq info (val1+val2) count
+calculateCombinedOp (Op Add seq) info val2 val1 count = calculateStreamOpSequence seq info (val1+val2) count
+calculateCombinedOp (Op Sub seq) info val2 val1 count = calculateStreamOpSequence seq info (val1-val2) count
+calculateCombinedOp (Op CombinedMultiply seq) info val2 val1 count = calculateStreamOpSequence seq info (val1*val2) count
+calculateCombinedOp (Op CombinedDivide seq) info val2 val1 count = calculateStreamOpSequence seq info (quot val1 val2) count
+calculateCombinedOp (Op Mod seq) info val2 val1 count = calculateStreamOpSequence seq info (val1 `mod` val2) count
+calculateCombinedOp (Op Pow seq) info val2 val1 count = calculateStreamOpSequence seq info (val1^val2) count
 
 pushValuesToStream :: [Int] -> [[Int]] -> Int -> IO [[Int]]
 pushValuesToStream values streams streamIndex = do
